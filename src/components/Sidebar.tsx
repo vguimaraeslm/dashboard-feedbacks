@@ -1,42 +1,50 @@
+import React from 'react';
 import { Nav } from 'react-bootstrap';
-import { FaHome, FaTable, FaChartPie, FaCog, FaVideo } from 'react-icons/fa';
+import { FaChartLine, FaTable, FaVideo, FaCog } from 'react-icons/fa';
 
-const Sidebar = () => {
+interface SidebarProps {
+  activePage: string;
+  onNavigate: (page: string) => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate }) => {
+  const navItems = [
+    { id: 'dashboard', label: 'Visão Geral', icon: <FaChartLine className="me-2" /> },
+    { id: 'feedbacks', label: 'Base de Dados', icon: <FaTable className="me-2" /> },
+    { id: 'settings', label: 'Configurações', icon: <FaCog className="me-2" /> },
+  ];
+
   return (
-    <div className="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark" style={{ width: '250px', minHeight: '100vh', position: 'fixed', left: 0, top: 0 }}>
-      <a href="/" className="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
-        <FaVideo className="me-2 fs-4 text-primary" />
-        <span className="fs-4 fw-bold">Frame.io Dash</span>
+    <div className="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark" style={{ width: '250px', minHeight: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 1000 }}>
+      <a href="#" className="d-flex align-items-center mb-4 mb-md-0 me-md-auto text-white text-decoration-none">
+        <div className="bg-primary rounded p-1 me-2">
+            <FaVideo className="text-white" />
+        </div>
+        <span className="fs-5 fw-bold">Frame.io Dash</span>
       </a>
-      <hr />
-      <Nav variant="pills" className="flex-column mb-auto">
-        <Nav.Item>
-          <Nav.Link href="#" active className="d-flex align-items-center mb-2">
-            <FaHome className="me-2" /> Visão Geral
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link href="#" className="text-white d-flex align-items-center mb-2">
-            <FaTable className="me-2" /> Feedbacks
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link href="#" className="text-white d-flex align-items-center mb-2">
-            <FaChartPie className="me-2" /> Relatórios
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link href="#" className="text-white d-flex align-items-center mb-2">
-            <FaCog className="me-2" /> Configurações
-          </Nav.Link>
-        </Nav.Item>
+      <hr className="border-secondary" />
+      <Nav variant="pills" className="flex-column mb-auto gap-2">
+        {navItems.map((item) => (
+          <Nav.Item key={item.id}>
+            <Nav.Link 
+              href="#" 
+              active={activePage === item.id}
+              onClick={() => onNavigate(item.id)}
+              className={`d-flex align-items-center text-white ${activePage === item.id ? 'bg-primary shadow' : 'hover-bg-secondary'}`}
+            >
+              {item.icon} {item.label}
+            </Nav.Link>
+          </Nav.Item>
+        ))}
       </Nav>
-      <hr />
+      <hr className="border-secondary" />
       <div className="dropdown">
-        <a href="#" className="d-flex align-items-center text-white text-decoration-none">
-          <img src="https://github.com/mdo.png" alt="" width="32" height="32" className="rounded-circle me-2" />
-          <strong>Admin</strong>
-        </a>
+        <div className="d-flex align-items-center text-white text-decoration-none px-2">
+          <div className="bg-secondary rounded-circle d-flex align-items-center justify-content-center me-2" style={{width: 32, height: 32}}>
+            <strong>AD</strong>
+          </div>
+          <small>Admin User</small>
+        </div>
       </div>
     </div>
   );
