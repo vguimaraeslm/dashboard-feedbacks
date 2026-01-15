@@ -8,26 +8,34 @@ function App() {
   const [usingMockData, setUsingMockData] = useState(false);
 
   useEffect(() => {
-    // Função para buscar dados
     const fetchData = async () => {
       try {
         const response = await fetch('/api/feedbacks');
-        
-        if (!response.ok) {
-          throw new Error('Erro na API');
-        }
-
+        if (!response.ok) throw new Error('Erro na API');
         const data = await response.json();
         // @ts-ignore
         setFeedbacks(data);
       } catch (error) {
-        console.warn("Rodando localmente ou API offline. Usando dados de teste.");
+        console.warn("Usando dados de teste.");
         setUsingMockData(true);
-        // Dados de teste (Fallback)
+        // Mock data atualizado com as novas colunas para não quebrar a tela
         setFeedbacks([
-          { id: 101, marca: 'Local Test', resumo_ia: 'Dados locais (API inacessível)', status: 'Pendente', sentimento: 'Neutro', arquivo_video: 'teste_local.mp4' },
-          { id: 102, marca: 'Coca-Cola', resumo_ia: 'O vídeo está com a iluminação escura.', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'campanha_verao.mp4' },
-          { id: 103, marca: 'Nubank', resumo_ia: 'Tudo certo, aprovado.', status: 'Aprovado', sentimento: 'Positivo', arquivo_video: 'promo_roxinho.mov' },
+          { 
+            id: 1, 
+            created_at: '2026-01-15',
+            marca: 'Teste Local', 
+            formato: '16:9',
+            tema: 'Teste',
+            versao: 'V1',
+            autor: 'Dev',
+            comentario_original: 'Isso é um teste local',
+            resumo_ia: 'Dados locais (API inacessível)', 
+            categoria_topico: 'Teste',
+            categoria_acao: 'Ajuste',
+            status: 'Pendente', 
+            sentimento: 'Neutro', 
+            arquivo_video: 'teste.mp4' 
+          }
         ]);
       } finally {
         setLoading(false);
@@ -38,25 +46,22 @@ function App() {
   }, []);
 
   return (
-    <div className="bg-light min-vh-100 py-5">
-      <Container>
+    <div className="bg-light min-vh-100 py-4">
+      <Container fluid="xxl"> {/* Usei 'fluid' para dar mais espaço lateral */}
         <h2 className="mb-4 fw-bold text-dark text-center">
           📊 Monitoramento de Feedbacks
         </h2>
 
         {usingMockData && (
-          <Alert variant="info" className="text-center shadow-sm">
+          <Alert variant="info" className="text-center shadow-sm mx-auto" style={{maxWidth: '600px'}}>
             <i className="bi bi-info-circle me-2"></i>
-            Você está visualizando <strong>dados de teste</strong> (Modo Local). No servidor, serão os dados reais.
+            Modo Local: Visualizando dados de teste.
           </Alert>
         )}
 
         {loading ? (
           <div className="text-center py-5">
-            <Spinner animation="border" role="status" variant="primary">
-              <span className="visually-hidden">Carregando...</span>
-            </Spinner>
-            <p className="mt-2 text-muted">Carregando dados...</p>
+            <Spinner animation="border" variant="primary" />
           </div>
         ) : (
           <FeedbacksTable feedbacks={feedbacks} />
@@ -66,4 +71,4 @@ function App() {
   );
 }
 
-export default App;
+export default App; 
