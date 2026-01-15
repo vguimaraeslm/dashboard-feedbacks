@@ -1,24 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Alert, Row, Col, Card, Form, Button } from 'react-bootstrap';
-import { FaLayerGroup, FaExclamationCircle, FaCalendarAlt, FaCog } from 'react-icons/fa';
+import { Alert, Row, Col, Card, Form, Button, Table, Badge } from 'react-bootstrap';
+import { FaLayerGroup, FaExclamationCircle, FaCalendarAlt, FaCog, FaChartArea, FaListOl } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, CartesianGrid, ComposedChart, Line } from 'recharts';
 import FeedbacksTable, { type Feedback } from './FeedbacksTable';
 import Sidebar from './components/Sidebar';
 import { parseISO, format } from 'date-fns';
 
+// Tipos para os gráficos
+interface ProjectStats {
+    marca: string;
+    tema: string;
+    versoes: number; // Quantas versões existiram (V1, V2...)
+    alteracoes: number; // Quantos comentários/pedidos no total
+    topicos: string[]; // Principais tópicos
+}
+
 function App() {
-  // --- ESTADOS ---
   const [activePage, setActivePage] = useState('dashboard');
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingMockData, setUsingMockData] = useState(false);
-
-  // --- FILTROS GLOBAIS ---
   const [filterMarca, setFilterMarca] = useState('Todas');
-  // Mantemos o estado do período, mesmo que fixo por enquanto, para expansão futura
   const [filterPeriodo] = useState('30'); 
 
-  // --- BUSCA DE DADOS ---
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -26,17 +30,18 @@ function App() {
         if (!response.ok) throw new Error('Erro na API');
         const data = await response.json();
         // @ts-ignore
-        setFeedbacks(data);
+        setFeedbacks(data || []);
       } catch (error) {
         console.warn("Usando dados de teste.");
         setUsingMockData(true);
+        // Mock data enriquecido para testar a lógica de versões
         setFeedbacks([
-            { id: 1, created_at: '2026-01-15', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V1', autor: 'Agência A', comentario_original: '-', resumo_ia: '-', categoria_topico: '["Cor"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'video1.mp4' },
-            { id: 2, created_at: '2026-01-15', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V2', autor: 'Agência A', comentario_original: '-', resumo_ia: '-', categoria_topico: '["Cor"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'video1_v2.mp4' },
-            { id: 3, created_at: '2026-01-14', marca: 'Nubank', formato: '9:16', tema: 'App', versao: 'V1', autor: 'In-house', comentario_original: '-', resumo_ia: '-', categoria_topico: '["Roteiro"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'nu.mp4' },
-            { id: 4, created_at: '2026-01-10', marca: 'Fiat', formato: '1:1', tema: 'Oferta', versao: 'V1', autor: 'Agência B', comentario_original: '-', resumo_ia: '-', categoria_topico: '["Texto"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Neutro', arquivo_video: 'fiat.mp4' },
-            { id: 5, created_at: '2026-01-12', marca: 'Fiat', formato: '1:1', tema: 'Oferta', versao: 'V2', autor: 'Agência B', comentario_original: '-', resumo_ia: '-', categoria_topico: '["Texto"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'fiat_v2.mp4' },
-            { id: 6, created_at: '2026-01-14', marca: 'Fiat', formato: '1:1', tema: 'Oferta', versao: 'V3', autor: 'Agência B', comentario_original: '-', resumo_ia: '-', categoria_topico: '["Geral"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'fiat_v3.mp4' },
+            { id: 1, created_at: '2026-01-10', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V1', autor: 'Agência', comentario_original: 'Mudar cor', resumo_ia: '-', categoria_topico: '["Cor"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'coca_v1.mp4' },
+            { id: 2, created_at: '2026-01-10', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V1', autor: 'Agência', comentario_original: 'Aumentar logo', resumo_ia: '-', categoria_topico: '["Marca"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Neutro', arquivo_video: 'coca_v1.mp4' },
+            { id: 3, created_at: '2026-01-12', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V2', autor: 'Agência', comentario_original: 'Ainda escuro', resumo_ia: '-', categoria_topico: '["Cor"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'coca_v2.mp4' },
+            { id: 4, created_at: '2026-01-14', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V3', autor: 'Agência', comentario_original: 'Ok', resumo_ia: '-', categoria_topico: '["Geral"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'coca_v3.mp4' },
+            
+            { id: 5, created_at: '2026-01-14', marca: 'Nubank', formato: '9:16', tema: 'App', versao: 'V1', autor: 'In-house', comentario_original: 'Ok', resumo_ia: '-', categoria_topico: '["Geral"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'nu.mp4' },
         ]);
       } finally {
         setLoading(false);
@@ -45,80 +50,135 @@ function App() {
     fetchData();
   }, []);
 
-  // --- MOTOR DE ANÁLISE DE DADOS (BI) ---
+  // --- MOTOR DE ANÁLISE (BI) ---
   const analytics = useMemo(() => {
-    const filtered = feedbacks.filter(f => filterMarca === 'Todas' || f.marca === filterMarca);
-    
-    const projetosMap = new Map();
-    
-    filtered.forEach(f => {
-        const key = `${f.marca}-${f.tema}`;
-        if (!projetosMap.has(key)) {
-            projetosMap.set(key, { marca: f.marca, versoes: new Set(), statusFinal: 'Em Andamento', maxVersao: 0 });
-        }
-        const proj = projetosMap.get(key);
-        proj.versoes.add(f.versao);
+    if (!feedbacks || feedbacks.length === 0) {
+        return { 
+            totalProjetos: 0, 
+            avgVersoesGeral: 0, 
+            totalAlteracoes: 0,
+            chartVersoesData: [], 
+            chartTopicosData: [], 
+            chartTimelineData: [], 
+            projectsTable: [],
+            topRetrabalhoName: '-' 
+        };
+    }
+
+    try {
+        const filtered = feedbacks.filter(f => filterMarca === 'Todas' || f.marca === filterMarca);
         
-        const vNum = parseInt(f.versao?.replace(/\D/g, '') || '0');
-        if (vNum > proj.maxVersao) proj.maxVersao = vNum;
+        // 1. Agrupamento por PROJETO (Tema)
+        const projetosMap = new Map();
         
-        if (f.status === 'Resolvido') proj.statusFinal = 'Aprovado';
-    });
+        filtered.forEach(f => {
+            if (!f.marca) return;
+            const temaSafe = f.tema || f.arquivo_video || 'Geral';
+            // Chave única do projeto
+            const key = `${f.marca}-${temaSafe}`;
+            
+            if (!projetosMap.has(key)) {
+                projetosMap.set(key, { 
+                    marca: f.marca, 
+                    tema: temaSafe, 
+                    versoesSet: new Set(), 
+                    alteracoesCount: 0,    
+                    maxVersaoNum: 0 
+                });
+            }
+            const proj = projetosMap.get(key);
+            
+            // Adiciona versão ao set
+            const versaoRaw = f.versao || 'V1';
+            proj.versoesSet.add(versaoRaw);
+            
+            // Conta alteração
+            proj.alteracoesCount += 1; 
 
-    const projetos = Array.from(projetosMap.values());
-    
-    const versoesPorMarca: any = {};
-    projetos.forEach((p: any) => {
-        if (!versoesPorMarca[p.marca]) versoesPorMarca[p.marca] = { totalVersoes: 0, count: 0 };
-        versoesPorMarca[p.marca].totalVersoes += p.maxVersao || 1;
-        versoesPorMarca[p.marca].count += 1;
-    });
-
-    const chartVersoesData = Object.keys(versoesPorMarca).map(m => ({
-        name: m,
-        media: (versoesPorMarca[m].totalVersoes / versoesPorMarca[m].count).toFixed(1),
-        projetos: versoesPorMarca[m].count
-    }));
-
-    const topicosPorMarca: any = {};
-    filtered.forEach(f => {
-        if (f.status === 'Revisão' || f.status === 'Pendente') {
-            const cleanTopic = f.categoria_topico?.replace(/[\[\]"]/g, '') || 'Outros';
-            if (!topicosPorMarca[cleanTopic]) topicosPorMarca[cleanTopic] = {};
-            if (!topicosPorMarca[cleanTopic][f.marca]) topicosPorMarca[cleanTopic][f.marca] = 0;
-            topicosPorMarca[cleanTopic][f.marca] += 1;
-        }
-    });
-
-    const chartTopicosData = Object.keys(topicosPorMarca).map(topic => {
-        const obj: any = { name: topic };
-        Object.keys(topicosPorMarca[topic]).forEach(marca => {
-            obj[marca] = topicosPorMarca[topic][marca];
+            // Calcula número da versão máxima
+            const vNum = parseInt(versaoRaw.replace(/\D/g, '') || '0');
+            if (vNum > proj.maxVersaoNum) proj.maxVersaoNum = vNum;
         });
-        return obj;
-    });
 
-    const timeline: any = {};
-    filtered.forEach(f => {
-        try {
-            const date = format(parseISO(f.created_at), 'dd/MM');
-            if (!timeline[date]) timeline[date] = 0;
-            timeline[date] += 1;
-        } catch (e) {}
-    });
-    const chartTimelineData = Object.keys(timeline).sort().map(d => ({ date: d, volume: timeline[d] }));
+        const projetos = Array.from(projetosMap.values()) as any[];
+        
+        // Métricas Gerais
+        const totalProjetos = projetos.length;
+        const totalVersoesAcumuladas = projetos.reduce((acc, p) => acc + (p.maxVersaoNum || 1), 0);
+        const avgVersoesGeral = totalProjetos > 0 ? (totalVersoesAcumuladas / totalProjetos).toFixed(1) : 0;
+        const totalAlteracoes = filtered.length; // Total de linhas processadas
 
-    return { 
-        totalProjetos: projetos.length,
-        projetosAprovados: projetos.filter((p:any) => p.statusFinal === 'Aprovado').length,
-        chartVersoesData,
-        chartTopicosData,
-        chartTimelineData
-    };
+        // Dados para Tabela Detalhada (Analytics Page)
+        const projectsTable: ProjectStats[] = projetos.map(p => ({
+            marca: p.marca,
+            tema: p.tema,
+            versoes: p.maxVersaoNum || 1, 
+            alteracoes: p.alteracoesCount,
+            topicos: [] 
+        })).sort((a, b) => b.versoes - a.versoes); 
 
+        // Dados Gráfico: Versões por Marca (Média)
+        const versoesPorMarca: any = {};
+        projetos.forEach((p: any) => {
+            if (!versoesPorMarca[p.marca]) versoesPorMarca[p.marca] = { totalVersoes: 0, count: 0 };
+            versoesPorMarca[p.marca].totalVersoes += (p.maxVersaoNum || 1);
+            versoesPorMarca[p.marca].count += 1;
+        });
+
+        const chartVersoesData = Object.keys(versoesPorMarca).map(m => ({
+            name: m,
+            media: Number((versoesPorMarca[m].totalVersoes / versoesPorMarca[m].count).toFixed(1)),
+        }));
+
+        // Dados Gráfico: Tópicos de Alteração
+        const topicosPorMarca: any = {};
+        filtered.forEach(f => {
+            if (f.status === 'Revisão' || f.status === 'Pendente') {
+                const cleanTopic = f.categoria_topico ? f.categoria_topico.replace(/[\[\]"]/g, '') : 'Outros';
+                if (!topicosPorMarca[cleanTopic]) topicosPorMarca[cleanTopic] = {};
+                if (!topicosPorMarca[cleanTopic][f.marca]) topicosPorMarca[cleanTopic][f.marca] = 0;
+                topicosPorMarca[cleanTopic][f.marca] += 1;
+            }
+        });
+
+        const chartTopicosData = Object.keys(topicosPorMarca).map(topic => {
+            const obj: any = { name: topic };
+            Object.keys(topicosPorMarca[topic]).forEach(marca => {
+                obj[marca] = topicosPorMarca[topic][marca];
+            });
+            return obj;
+        });
+
+        // Timeline
+        const timeline: any = {};
+        filtered.forEach(f => {
+            try {
+                if (f.created_at) {
+                    const date = format(parseISO(f.created_at), 'dd/MM');
+                    if (!timeline[date]) timeline[date] = 0;
+                    timeline[date] += 1;
+                }
+            } catch (e) {}
+        });
+        const chartTimelineData = Object.keys(timeline).sort().map(d => ({ date: d, volume: timeline[d] }));
+
+        return { 
+            totalProjetos, 
+            avgVersoesGeral, 
+            totalAlteracoes,
+            chartVersoesData, 
+            chartTopicosData, 
+            chartTimelineData, 
+            projectsTable,
+            topRetrabalhoName: projectsTable[0]?.marca || '-'
+        };
+    } catch (err) {
+        console.error("Erro processamento:", err);
+        return { totalProjetos: 0, avgVersoesGeral: 0, totalAlteracoes: 0, chartVersoesData: [], chartTopicosData: [], chartTimelineData: [], projectsTable: [], topRetrabalhoName: 'Erro' };
+    }
   }, [feedbacks, filterMarca]);
 
-  const uniqueMarcas = Array.from(new Set(feedbacks.map(f => f.marca))).sort();
+  const uniqueMarcas = Array.from(new Set(feedbacks.map(f => f.marca || 'Unknown'))).sort();
 
   return (
     <div className="d-flex">
@@ -129,9 +189,11 @@ function App() {
         <header className="bg-white shadow-sm py-3 px-4 d-flex justify-content-between align-items-center sticky-top">
             <div>
                 <h5 className="m-0 fw-bold text-dark">
-                    {activePage === 'dashboard' ? 'Dashboard Executivo' : activePage === 'feedbacks' ? 'Gerenciador de Dados' : 'Configurações'}
+                    {activePage === 'dashboard' ? 'Visão Geral' : activePage === 'analytics' ? 'Performance & Eficiência' : activePage === 'feedbacks' ? 'Banco de Dados' : 'Configurações'}
                 </h5>
-                <small className="text-muted">Análise estratégica de produção criativa</small>
+                <small className="text-muted">
+                    {activePage === 'analytics' ? 'Análise detalhada de retrabalho e esforço por projeto' : 'Monitoramento de produção criativa'}
+                </small>
             </div>
             <div className="d-flex gap-2">
                 <Form.Select size="sm" value={filterMarca} onChange={(e) => setFilterMarca(e.target.value)} className="fw-bold border-primary text-primary" style={{width: '200px'}}>
@@ -149,51 +211,82 @@ function App() {
                 </Alert>
             )}
 
-            {/* LOADER GLOBAL */}
             {loading ? (
                 <div className="d-flex flex-column align-items-center justify-content-center py-5">
                     <div className="spinner-border text-primary mb-3" role="status"></div>
-                    <span className="text-muted">Processando Inteligência...</span>
+                    <span className="text-muted">Processando Dados...</span>
                 </div>
             ) : (
                 <>
+                
+                {/* --- PÁGINA 1: VISÃO GERAL (Condensada) --- */}
                 {activePage === 'dashboard' && (
                     <>
+                        {/* KPIs GERAIS */}
                         <Row className="g-3 mb-4">
-                            <Col md={3}>
-                                <Card className="border-0 shadow-sm h-100 border-start border-4 border-primary">
-                                    <Card.Body>
-                                        <small className="text-muted text-uppercase fw-bold">Projetos Ativos</small>
-                                        <h2 className="fw-bold mb-0">{analytics.totalProjetos}</h2>
-                                        <small className="text-muted">Demandas únicas (Tema)</small>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                            <Col md={3}>
-                                <Card className="border-0 shadow-sm h-100 border-start border-4 border-success">
-                                    <Card.Body>
-                                        <small className="text-muted text-uppercase fw-bold">Taxa de Aprovação</small>
-                                        <h2 className="fw-bold mb-0 text-success">
-                                            {analytics.totalProjetos > 0 ? Math.round((analytics.projetosAprovados / analytics.totalProjetos) * 100) : 0}%
-                                        </h2>
-                                        <small className="text-muted">Projetos finalizados</small>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                            <Col md={6}>
+                            <Col md={4}>
                                 <Card className="border-0 shadow-sm h-100">
-                                    <Card.Body className="d-flex align-items-center justify-content-between">
-                                        <div>
-                                            <h6 className="fw-bold text-primary mb-1">Dica de Eficiência</h6>
-                                            <p className="small text-muted mb-0 m-0">
-                                                A marca com maior retrabalho é <strong>{analytics.chartVersoesData.sort((a:any,b:any) => b.media - a.media)[0]?.name || '-'}</strong>.
-                                                Verifique os tópicos de "Correção" abaixo.
-                                            </p>
-                                        </div>
-                                        <FaLayerGroup size={30} className="text-primary opacity-25"/>
+                                    <Card.Body>
+                                        <small className="text-muted text-uppercase fw-bold">Projetos Entregues</small>
+                                        <h2 className="fw-bold mb-0">{analytics.totalProjetos}</h2>
+                                        <small className="text-success">Vídeos únicos processados</small>
                                     </Card.Body>
                                 </Card>
                             </Col>
+                            <Col md={4}>
+                                <Card className="border-0 shadow-sm h-100 border-start border-4 border-warning">
+                                    <Card.Body>
+                                        <small className="text-muted text-uppercase fw-bold">Média de Versões</small>
+                                        <h2 className="fw-bold mb-0 text-warning">{analytics.avgVersoesGeral}</h2>
+                                        <small className="text-muted">Versões p/ aprovar um vídeo</small>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                            <Col md={4}>
+                                <Card className="border-0 shadow-sm h-100">
+                                    <Card.Body>
+                                        <small className="text-muted text-uppercase fw-bold">Volume de Interações</small>
+                                        <h2 className="fw-bold mb-0">{analytics.totalAlteracoes}</h2>
+                                        <small className="text-muted">Comentários processados</small>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        </Row>
+
+                        {/* GRÁFICO DE TIMELINE (Volume) */}
+                        <Card className="border-0 shadow-sm mb-4">
+                            <Card.Body style={{height: 300}}>
+                                <h6 className="fw-bold mb-3 px-2">Fluxo de Entrada de Feedbacks</h6>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart data={analytics.chartTimelineData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="date" tick={{fontSize: 12}} />
+                                        <YAxis />
+                                        <RechartsTooltip />
+                                        <Line type="monotone" dataKey="volume" stroke="#0d6efd" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </Card.Body>
+                        </Card>
+                    </>
+                )}
+
+                {/* --- PÁGINA 2: ESTATÍSTICAS AVANÇADAS (Performance) --- */}
+                {activePage === 'analytics' && (
+                    <>
+                        <Row className="mb-4">
+                             <Col md={12}>
+                                <Alert variant="light" className="border shadow-sm d-flex align-items-center">
+                                    <FaChartArea className="text-primary fs-4 me-3" />
+                                    <div>
+                                        <strong>Análise de Esforço:</strong>
+                                        <div className="small text-muted">
+                                            A marca <strong>{analytics.topRetrabalhoName}</strong> lidera o ranking de refações. 
+                                            Use a tabela abaixo para identificar quais vídeos específicos puxaram essa média para cima.
+                                        </div>
+                                    </div>
+                                </Alert>
+                             </Col>
                         </Row>
 
                         <Row className="g-3 mb-4">
@@ -201,17 +294,16 @@ function App() {
                                 <Card className="border-0 shadow-sm h-100">
                                     <Card.Header className="bg-white fw-bold border-0 pt-4 px-4">
                                         <FaLayerGroup className="me-2 text-warning"/>
-                                        Média de Versões até Aprovação
-                                        <div className="small text-muted fw-normal">Mede o esforço da equipe por marca (Menor é melhor)</div>
+                                        Média de Versões por Marca
                                     </Card.Header>
                                     <Card.Body style={{ height: 300 }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={analytics.chartVersoesData} layout="vertical" margin={{left: 20}}>
                                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                                                 <XAxis type="number" domain={[0, 'auto']} hide />
-                                                <YAxis dataKey="name" type="category" width={80} tick={{fontSize: 12, fontWeight: 'bold'}} />
-                                                <RechartsTooltip cursor={{fill: '#f8f9fa'}} />
-                                                <Bar dataKey="media" name="Média de Versões" fill="#ffc107" radius={[0, 4, 4, 0]} barSize={25} label={{ position: 'right', fill: '#666' }} />
+                                                <YAxis dataKey="name" type="category" width={90} tick={{fontSize: 12, fontWeight: 'bold'}} />
+                                                <RechartsTooltip />
+                                                <Bar dataKey="media" name="Média Versões" fill="#ffc107" radius={[0, 4, 4, 0]} barSize={25} label={{ position: 'right', fill: '#666' }} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </Card.Body>
@@ -222,8 +314,7 @@ function App() {
                                 <Card className="border-0 shadow-sm h-100">
                                     <Card.Header className="bg-white fw-bold border-0 pt-4 px-4">
                                         <FaExclamationCircle className="me-2 text-danger"/>
-                                        Principais Motivos de Refação
-                                        <div className="small text-muted fw-normal">O que está travando as aprovações?</div>
+                                        Categorias de Ajuste Solicitados
                                     </Card.Header>
                                     <Card.Body style={{ height: 300 }}>
                                         <ResponsiveContainer width="100%" height="100%">
@@ -232,7 +323,7 @@ function App() {
                                                 <XAxis dataKey="name" tick={{fontSize: 12}} />
                                                 <YAxis />
                                                 <RechartsTooltip />
-                                                <Legend wrapperStyle={{fontSize: '12px', paddingTop: '10px'}}/>
+                                                <Legend />
                                                 {uniqueMarcas.map((marca, index) => (
                                                     <Bar key={marca} dataKey={marca} stackId="a" fill={`hsl(${index * 60}, 70%, 50%)`} barSize={40} />
                                                 ))}
@@ -242,28 +333,53 @@ function App() {
                                 </Card>
                             </Col>
                         </Row>
-                        
+
+                        {/* TABELA DE DETALHAMENTO POR VÍDEO */}
                         <Card className="border-0 shadow-sm">
-                            <Card.Body style={{height: 250}}>
-                                <h6 className="fw-bold mb-3">Volume de Feedbacks (Timeline)</h6>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={analytics.chartTimelineData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="date" tick={{fontSize: 12}} />
-                                        <YAxis hide />
-                                        <RechartsTooltip />
-                                        <Line type="monotone" dataKey="volume" stroke="#0d6efd" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
-                                    </ComposedChart>
-                                </ResponsiveContainer>
+                            <Card.Header className="bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                                <h6 className="fw-bold m-0"><FaListOl className="me-2"/> Detalhamento por Projeto (Vídeo)</h6>
+                                <Badge bg="secondary">{analytics.projectsTable.length} Projetos</Badge>
+                            </Card.Header>
+                            <Card.Body className="p-0 table-responsive">
+                                <Table hover className="mb-0 align-middle">
+                                    <thead className="bg-light text-muted small">
+                                        <tr>
+                                            <th className="ps-4">Marca</th>
+                                            <th>Nome do Vídeo / Tema</th>
+                                            <th className="text-center">Versões Geradas</th>
+                                            <th className="text-center">Total Alterações</th>
+                                            <th className="text-center">Média Alterações/Versão</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {analytics.projectsTable.map((proj, idx) => (
+                                            <tr key={idx}>
+                                                <td className="ps-4 fw-bold text-primary">{proj.marca}</td>
+                                                <td>{proj.tema}</td>
+                                                <td className="text-center">
+                                                    <Badge bg={proj.versoes > 2 ? 'danger' : 'success'} pill className="px-3">
+                                                        V{proj.versoes}
+                                                    </Badge>
+                                                </td>
+                                                <td className="text-center fw-bold">{proj.alteracoes}</td>
+                                                <td className="text-center text-muted">
+                                                    {(proj.alteracoes / proj.versoes).toFixed(1)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
                             </Card.Body>
                         </Card>
                     </>
                 )}
 
+                {/* --- PÁGINA 3: BANCO DE DADOS (Raw Data) --- */}
                 {activePage === 'feedbacks' && (
                     <FeedbacksTable feedbacks={feedbacks.filter(f => filterMarca === 'Todas' || f.marca === filterMarca)} />
                 )}
 
+                {/* --- PÁGINA 4: CONFIG --- */}
                 {activePage === 'settings' && (
                     <div className="text-center py-5 text-muted">
                         <FaCog size={40} className="mb-3"/>
