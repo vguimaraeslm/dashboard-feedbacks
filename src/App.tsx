@@ -1,20 +1,61 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Alert, Row, Col, Card, Form, Button, Table, Badge } from 'react-bootstrap';
-import { FaLayerGroup, FaExclamationCircle, FaCalendarAlt, FaCog, FaChartArea, FaListOl } from 'react-icons/fa';
+import { Alert, Row, Col, Card, Form, Button, Table, Badge, Nav } from 'react-bootstrap';
+import { FaLayerGroup, FaExclamationCircle, FaCalendarAlt, FaCog, FaChartArea, FaListOl, FaChartPie, FaChartLine, FaVideo, FaTable } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, CartesianGrid, ComposedChart, Line } from 'recharts';
 import FeedbacksTable, { type Feedback } from './FeedbacksTable';
-import Sidebar from './components/Sidebar';
 import { parseISO, format } from 'date-fns';
 
-// Tipos para os gráficos
+// --- DEFINIÇÃO DA SIDEBAR (INTERNA PARA EVITAR ERROS DE BUILD) ---
+interface SidebarProps {
+  activePage: string;
+  onNavigate: (page: string) => void;
+}
+
+const InternalSidebar: React.FC<SidebarProps> = ({ activePage, onNavigate }) => {
+  const navItems = [
+    { id: 'dashboard', label: 'Visão Geral', icon: <FaChartLine className="me-2" /> },
+    { id: 'analytics', label: 'Performance', icon: <FaChartPie className="me-2" /> },
+    { id: 'feedbacks', label: 'Base de Dados', icon: <FaTable className="me-2" /> },
+    { id: 'settings', label: 'Configurações', icon: <FaCog className="me-2" /> },
+  ];
+
+  return (
+    <div className="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark" style={{ width: '250px', minHeight: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 1000 }}>
+      <div className="d-flex align-items-center mb-4 mb-md-0 me-md-auto text-white text-decoration-none">
+        <div className="bg-primary rounded p-1 me-2">
+            <FaVideo className="text-white" />
+        </div>
+        <span className="fs-5 fw-bold">Frame.io Dash</span>
+      </div>
+      <hr className="border-secondary" />
+      <Nav variant="pills" className="flex-column mb-auto gap-2">
+        {navItems.map((item) => (
+          <Nav.Item key={item.id}>
+            <Nav.Link 
+              href="#" 
+              active={activePage === item.id}
+              onClick={() => onNavigate(item.id)}
+              className={`d-flex align-items-center text-white ${activePage === item.id ? 'bg-primary shadow' : 'hover-bg-secondary'}`}
+            >
+              {item.icon} {item.label}
+            </Nav.Link>
+          </Nav.Item>
+        ))}
+      </Nav>
+    </div>
+  );
+};
+
+// --- DEFINIÇÃO DOS TIPOS DO APP ---
 interface ProjectStats {
     marca: string;
     tema: string;
-    versoes: number; // Quantas versões existiram (V1, V2...)
-    alteracoes: number; // Quantos comentários/pedidos no total
-    topicos: string[]; // Principais tópicos
+    versoes: number;
+    alteracoes: number;
+    topicos: string[];
 }
 
+// --- APLICAÇÃO PRINCIPAL ---
 function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -34,13 +75,11 @@ function App() {
       } catch (error) {
         console.warn("Usando dados de teste.");
         setUsingMockData(true);
-        // Mock data enriquecido para testar a lógica de versões
         setFeedbacks([
             { id: 1, created_at: '2026-01-10', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V1', autor: 'Agência', comentario_original: 'Mudar cor', resumo_ia: '-', categoria_topico: '["Cor"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'coca_v1.mp4' },
             { id: 2, created_at: '2026-01-10', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V1', autor: 'Agência', comentario_original: 'Aumentar logo', resumo_ia: '-', categoria_topico: '["Marca"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Neutro', arquivo_video: 'coca_v1.mp4' },
             { id: 3, created_at: '2026-01-12', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V2', autor: 'Agência', comentario_original: 'Ainda escuro', resumo_ia: '-', categoria_topico: '["Cor"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'coca_v2.mp4' },
             { id: 4, created_at: '2026-01-14', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V3', autor: 'Agência', comentario_original: 'Ok', resumo_ia: '-', categoria_topico: '["Geral"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'coca_v3.mp4' },
-            
             { id: 5, created_at: '2026-01-14', marca: 'Nubank', formato: '9:16', tema: 'App', versao: 'V1', autor: 'In-house', comentario_original: 'Ok', resumo_ia: '-', categoria_topico: '["Geral"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'nu.mp4' },
         ]);
       } finally {
@@ -50,7 +89,6 @@ function App() {
     fetchData();
   }, []);
 
-  // --- MOTOR DE ANÁLISE (BI) ---
   const analytics = useMemo(() => {
     if (!feedbacks || feedbacks.length === 0) {
         return { 
@@ -67,48 +105,30 @@ function App() {
 
     try {
         const filtered = feedbacks.filter(f => filterMarca === 'Todas' || f.marca === filterMarca);
-        
-        // 1. Agrupamento por PROJETO (Tema)
         const projetosMap = new Map();
         
         filtered.forEach(f => {
             if (!f.marca) return;
             const temaSafe = f.tema || f.arquivo_video || 'Geral';
-            // Chave única do projeto
             const key = `${f.marca}-${temaSafe}`;
             
             if (!projetosMap.has(key)) {
-                projetosMap.set(key, { 
-                    marca: f.marca, 
-                    tema: temaSafe, 
-                    versoesSet: new Set(), 
-                    alteracoesCount: 0,    
-                    maxVersaoNum: 0 
-                });
+                projetosMap.set(key, { marca: f.marca, tema: temaSafe, versoesSet: new Set(), alteracoesCount: 0, maxVersaoNum: 0 });
             }
             const proj = projetosMap.get(key);
-            
-            // Adiciona versão ao set
             const versaoRaw = f.versao || 'V1';
             proj.versoesSet.add(versaoRaw);
-            
-            // Conta alteração
             proj.alteracoesCount += 1; 
-
-            // Calcula número da versão máxima
             const vNum = parseInt(versaoRaw.replace(/\D/g, '') || '0');
             if (vNum > proj.maxVersaoNum) proj.maxVersaoNum = vNum;
         });
 
         const projetos = Array.from(projetosMap.values()) as any[];
-        
-        // Métricas Gerais
         const totalProjetos = projetos.length;
         const totalVersoesAcumuladas = projetos.reduce((acc, p) => acc + (p.maxVersaoNum || 1), 0);
         const avgVersoesGeral = totalProjetos > 0 ? (totalVersoesAcumuladas / totalProjetos).toFixed(1) : 0;
-        const totalAlteracoes = filtered.length; // Total de linhas processadas
+        const totalAlteracoes = filtered.length;
 
-        // Dados para Tabela Detalhada (Analytics Page)
         const projectsTable: ProjectStats[] = projetos.map(p => ({
             marca: p.marca,
             tema: p.tema,
@@ -117,7 +137,6 @@ function App() {
             topicos: [] 
         })).sort((a, b) => b.versoes - a.versoes); 
 
-        // Dados Gráfico: Versões por Marca (Média)
         const versoesPorMarca: any = {};
         projetos.forEach((p: any) => {
             if (!versoesPorMarca[p.marca]) versoesPorMarca[p.marca] = { totalVersoes: 0, count: 0 };
@@ -130,7 +149,6 @@ function App() {
             media: Number((versoesPorMarca[m].totalVersoes / versoesPorMarca[m].count).toFixed(1)),
         }));
 
-        // Dados Gráfico: Tópicos de Alteração
         const topicosPorMarca: any = {};
         filtered.forEach(f => {
             if (f.status === 'Revisão' || f.status === 'Pendente') {
@@ -149,7 +167,6 @@ function App() {
             return obj;
         });
 
-        // Timeline
         const timeline: any = {};
         filtered.forEach(f => {
             try {
@@ -163,17 +180,11 @@ function App() {
         const chartTimelineData = Object.keys(timeline).sort().map(d => ({ date: d, volume: timeline[d] }));
 
         return { 
-            totalProjetos, 
-            avgVersoesGeral, 
-            totalAlteracoes,
-            chartVersoesData, 
-            chartTopicosData, 
-            chartTimelineData, 
-            projectsTable,
+            totalProjetos, avgVersoesGeral, totalAlteracoes,
+            chartVersoesData, chartTopicosData, chartTimelineData, projectsTable,
             topRetrabalhoName: projectsTable[0]?.marca || '-'
         };
     } catch (err) {
-        console.error("Erro processamento:", err);
         return { totalProjetos: 0, avgVersoesGeral: 0, totalAlteracoes: 0, chartVersoesData: [], chartTopicosData: [], chartTimelineData: [], projectsTable: [], topRetrabalhoName: 'Erro' };
     }
   }, [feedbacks, filterMarca]);
@@ -182,7 +193,8 @@ function App() {
 
   return (
     <div className="d-flex">
-      <Sidebar activePage={activePage} onNavigate={setActivePage} />
+      {/* SIDEBAR INTERNA */}
+      <InternalSidebar activePage={activePage} onNavigate={setActivePage} />
 
       <div className="flex-grow-1 bg-light" style={{ marginLeft: '250px', minHeight: '100vh' }}>
         
@@ -218,11 +230,8 @@ function App() {
                 </div>
             ) : (
                 <>
-                
-                {/* --- PÁGINA 1: VISÃO GERAL (Condensada) --- */}
                 {activePage === 'dashboard' && (
                     <>
-                        {/* KPIs GERAIS */}
                         <Row className="g-3 mb-4">
                             <Col md={4}>
                                 <Card className="border-0 shadow-sm h-100">
@@ -252,8 +261,6 @@ function App() {
                                 </Card>
                             </Col>
                         </Row>
-
-                        {/* GRÁFICO DE TIMELINE (Volume) */}
                         <Card className="border-0 shadow-sm mb-4">
                             <Card.Body style={{height: 300}}>
                                 <h6 className="fw-bold mb-3 px-2">Fluxo de Entrada de Feedbacks</h6>
@@ -270,8 +277,6 @@ function App() {
                         </Card>
                     </>
                 )}
-
-                {/* --- PÁGINA 2: ESTATÍSTICAS AVANÇADAS (Performance) --- */}
                 {activePage === 'analytics' && (
                     <>
                         <Row className="mb-4">
@@ -282,13 +287,11 @@ function App() {
                                         <strong>Análise de Esforço:</strong>
                                         <div className="small text-muted">
                                             A marca <strong>{analytics.topRetrabalhoName}</strong> lidera o ranking de refações. 
-                                            Use a tabela abaixo para identificar quais vídeos específicos puxaram essa média para cima.
                                         </div>
                                     </div>
                                 </Alert>
                              </Col>
                         </Row>
-
                         <Row className="g-3 mb-4">
                             <Col lg={6}>
                                 <Card className="border-0 shadow-sm h-100">
@@ -309,7 +312,6 @@ function App() {
                                     </Card.Body>
                                 </Card>
                             </Col>
-
                             <Col lg={6}>
                                 <Card className="border-0 shadow-sm h-100">
                                     <Card.Header className="bg-white fw-bold border-0 pt-4 px-4">
@@ -333,8 +335,6 @@ function App() {
                                 </Card>
                             </Col>
                         </Row>
-
-                        {/* TABELA DE DETALHAMENTO POR VÍDEO */}
                         <Card className="border-0 shadow-sm">
                             <Card.Header className="bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
                                 <h6 className="fw-bold m-0"><FaListOl className="me-2"/> Detalhamento por Projeto (Vídeo)</h6>
@@ -373,13 +373,9 @@ function App() {
                         </Card>
                     </>
                 )}
-
-                {/* --- PÁGINA 3: BANCO DE DADOS (Raw Data) --- */}
                 {activePage === 'feedbacks' && (
                     <FeedbacksTable feedbacks={feedbacks.filter(f => filterMarca === 'Todas' || f.marca === filterMarca)} />
                 )}
-
-                {/* --- PÁGINA 4: CONFIG --- */}
                 {activePage === 'settings' && (
                     <div className="text-center py-5 text-muted">
                         <FaCog size={40} className="mb-3"/>
