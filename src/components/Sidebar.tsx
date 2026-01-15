@@ -2,6 +2,7 @@ import React from 'react';
 import { Nav } from 'react-bootstrap';
 import { FaChartLine, FaTable, FaVideo, FaCog, FaChartPie } from 'react-icons/fa';
 
+// Aqui definimos que o Sidebar aceita receber qual página está ativa
 interface SidebarProps {
   activePage: string;
   onNavigate: (page: string) => void;
@@ -10,7 +11,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate }) => {
   const navItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: <FaChartLine className="me-2" /> },
-    { id: 'analytics', label: 'Performance', icon: <FaChartPie className="me-2" /> }, // Nova Página
+    { id: 'analytics', label: 'Performance', icon: <FaChartPie className="me-2" /> },
     { id: 'feedbacks', label: 'Base de Dados', icon: <FaTable className="me-2" /> },
     { id: 'settings', label: 'Configurações', icon: <FaCog className="me-2" /> },
   ];
