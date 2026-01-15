@@ -5,8 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 import FeedbacksTable, { type Feedback } from './FeedbacksTable';
 import { parseISO, format } from 'date-fns';
 
-// --- DEFINIÇÃO DA SIDEBAR (INTERNA E SIMPLIFICADA) ---
-// Removemos "React.FC" para evitar erro de importação
+// --- DEFINIÇÃO DA SIDEBAR ---
 interface SidebarProps {
   activePage: string;
   onNavigate: (page: string) => void;
@@ -47,7 +46,7 @@ const InternalSidebar = ({ activePage, onNavigate }: SidebarProps) => {
   );
 };
 
-// --- DEFINIÇÃO DOS TIPOS DO APP ---
+// --- DEFINIÇÃO DOS TIPOS ---
 interface ProjectStats {
     marca: string;
     tema: string;
@@ -56,7 +55,7 @@ interface ProjectStats {
     topicos: string[];
 }
 
-// --- APLICAÇÃO PRINCIPAL ---
+// --- APP PRINCIPAL ---
 function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -93,19 +92,15 @@ function App() {
   const analytics = useMemo(() => {
     if (!feedbacks || feedbacks.length === 0) {
         return { 
-            totalProjetos: 0, 
-            avgVersoesGeral: 0, 
-            totalAlteracoes: 0,
-            chartVersoesData: [], 
-            chartTopicosData: [], 
-            chartTimelineData: [], 
-            projectsTable: [],
-            topRetrabalhoName: '-' 
+            totalProjetos: 0, avgVersoesGeral: 0, totalAlteracoes: 0,
+            chartVersoesData: [], chartTopicosData: [], chartTimelineData: [], projectsTable: [], topRetrabalhoName: '-' 
         };
     }
 
     try {
         const filtered = feedbacks.filter(f => filterMarca === 'Todas' || f.marca === filterMarca);
+        
+        // 1. Projetos e Versões
         const projetosMap = new Map();
         
         filtered.forEach(f => {
@@ -119,7 +114,12 @@ function App() {
             const proj = projetosMap.get(key);
             const versaoRaw = f.versao || 'V1';
             proj.versoesSet.add(versaoRaw);
-            proj.alteracoesCount += 1; 
+            
+            // Só conta como alteração se não for uma "Aprovação"
+            if (!f.categoria_acao?.includes('Aprovação')) {
+                proj.alteracoesCount += 1; 
+            }
+            
             const vNum = parseInt(versaoRaw.replace(/\D/g, '') || '0');
             if (vNum > proj.maxVersaoNum) proj.maxVersaoNum = vNum;
         });
@@ -138,22 +138,29 @@ function App() {
             topicos: [] 
         })).sort((a, b) => b.versoes - a.versoes); 
 
+        // Gráfico Versões
         const versoesPorMarca: any = {};
         projetos.forEach((p: any) => {
             if (!versoesPorMarca[p.marca]) versoesPorMarca[p.marca] = { totalVersoes: 0, count: 0 };
             versoesPorMarca[p.marca].totalVersoes += (p.maxVersaoNum || 1);
             versoesPorMarca[p.marca].count += 1;
         });
-
         const chartVersoesData = Object.keys(versoesPorMarca).map(m => ({
             name: m,
             media: Number((versoesPorMarca[m].totalVersoes / versoesPorMarca[m].count).toFixed(1)),
         }));
 
+        // --- CORREÇÃO AQUI: Gráfico Tópicos ---
+        // Agora conta TUDO que não for "Aprovação" ou "Geral", independente do status
         const topicosPorMarca: any = {};
         filtered.forEach(f => {
-            if (f.status === 'Revisão' || f.status === 'Pendente') {
+            const isAprovacao = f.categoria_acao === 'Aprovação' || f.categoria_topico?.includes('Geral');
+            
+            if (!isAprovacao) {
                 const cleanTopic = f.categoria_topico ? f.categoria_topico.replace(/[\[\]"]/g, '') : 'Outros';
+                // Ignora se ficou vazio após limpar
+                if (!cleanTopic) return;
+
                 if (!topicosPorMarca[cleanTopic]) topicosPorMarca[cleanTopic] = {};
                 if (!topicosPorMarca[cleanTopic][f.marca]) topicosPorMarca[cleanTopic][f.marca] = 0;
                 topicosPorMarca[cleanTopic][f.marca] += 1;
@@ -168,6 +175,7 @@ function App() {
             return obj;
         });
 
+        // Timeline
         const timeline: any = {};
         filtered.forEach(f => {
             try {
@@ -186,6 +194,7 @@ function App() {
             topRetrabalhoName: projectsTable[0]?.marca || '-'
         };
     } catch (err) {
+        console.error(err);
         return { totalProjetos: 0, avgVersoesGeral: 0, totalAlteracoes: 0, chartVersoesData: [], chartTopicosData: [], chartTimelineData: [], projectsTable: [], topRetrabalhoName: 'Erro' };
     }
   }, [feedbacks, filterMarca]);
@@ -194,7 +203,6 @@ function App() {
 
   return (
     <div className="d-flex">
-      {/* SIDEBAR INTERNA */}
       <InternalSidebar activePage={activePage} onNavigate={setActivePage} />
 
       <div className="flex-grow-1 bg-light" style={{ marginLeft: '250px', minHeight: '100vh' }}>
