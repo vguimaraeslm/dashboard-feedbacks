@@ -5,13 +5,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 import FeedbacksTable, { type Feedback } from './FeedbacksTable';
 import { parseISO, format } from 'date-fns';
 
-// --- DEFINIÇÃO DA SIDEBAR (INTERNA PARA EVITAR ERROS DE BUILD) ---
+// --- DEFINIÇÃO DA SIDEBAR (INTERNA E SIMPLIFICADA) ---
+// Removemos "React.FC" para evitar erro de importação
 interface SidebarProps {
   activePage: string;
   onNavigate: (page: string) => void;
 }
 
-const InternalSidebar: React.FC<SidebarProps> = ({ activePage, onNavigate }) => {
+const InternalSidebar = ({ activePage, onNavigate }: SidebarProps) => {
   const navItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: <FaChartLine className="me-2" /> },
     { id: 'analytics', label: 'Performance', icon: <FaChartPie className="me-2" /> },
