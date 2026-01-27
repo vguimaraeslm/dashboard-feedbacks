@@ -1,403 +1,267 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Alert, Row, Col, Card, Form, Button, Table, Badge, Nav } from 'react-bootstrap';
-import { FaLayerGroup, FaExclamationCircle, FaCalendarAlt, FaCog, FaChartArea, FaListOl, FaChartPie, FaChartLine, FaVideo, FaTable } from 'react-icons/fa';
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, CartesianGrid, ComposedChart, Line } from 'recharts';
-import FeedbacksTable, { type Feedback } from './FeedbacksTable';
-import { parseISO, format } from 'date-fns';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip
+} from 'recharts';
+import { 
+  MessageSquare, Layers, Activity, Search, 
+  Target, BarChart3, Video, Briefcase, Loader2, AlertCircle
+} from "lucide-react";
 
-// --- DEFINIÇÃO DA SIDEBAR ---
-interface SidebarProps {
-  activePage: string;
-  onNavigate: (page: string) => void;
+// Interface baseada no Banco de Dados D1
+interface Feedback {
+  id: number;
+  video_marca: string;
+  video_tema: string;
+  video_formato: string;
+  video_versao: string;
+  comment_text: string;
+  ai_summary: string;
+  ai_category_topic: string; // JSON array string
+  created_at: string;
 }
 
-const InternalSidebar = ({ activePage, onNavigate }: SidebarProps) => {
-  const navItems = [
-    { id: 'dashboard', label: 'Visão Geral', icon: <FaChartLine className="me-2" /> },
-    { id: 'analytics', label: 'Performance', icon: <FaChartPie className="me-2" /> },
-    { id: 'feedbacks', label: 'Base de Dados', icon: <FaTable className="me-2" /> },
-    { id: 'settings', label: 'Configurações', icon: <FaCog className="me-2" /> },
-  ];
+const COLORS = ['#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', '#10B981'];
 
-  return (
-    <div className="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark" style={{ width: '250px', minHeight: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 1000 }}>
-      <div className="d-flex align-items-center mb-4 mb-md-0 me-md-auto text-white text-decoration-none">
-        <div className="bg-primary rounded p-1 me-2">
-            <FaVideo className="text-white" />
-        </div>
-        <span className="fs-5 fw-bold">Frame.io Dash</span>
-      </div>
-      <hr className="border-secondary" />
-      <Nav variant="pills" className="flex-column mb-auto gap-2">
-        {navItems.map((item) => (
-          <Nav.Item key={item.id}>
-            <Nav.Link 
-              href="#" 
-              active={activePage === item.id}
-              onClick={() => onNavigate(item.id)}
-              className={`d-flex align-items-center text-white ${activePage === item.id ? 'bg-primary shadow' : 'hover-bg-secondary'}`}
-            >
-              {item.icon} {item.label}
-            </Nav.Link>
-          </Nav.Item>
-        ))}
-      </Nav>
-    </div>
-  );
-};
-
-// --- DEFINIÇÃO DOS TIPOS ---
-interface ProjectStats {
-    marca: string;
-    tema: string;
-    versoes: number;
-    alteracoes: number;
-    topicos: string[];
-}
-
-// --- APP PRINCIPAL ---
-function App() {
-  const [activePage, setActivePage] = useState('dashboard');
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+export default function UltimateDashboard() {
+  const [data, setData] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingMockData, setUsingMockData] = useState(false);
-  const [filterMarca, setFilterMarca] = useState('Todas');
-  const [filterPeriodo] = useState('30'); 
+  const [error, setError] = useState<string | null>(null);
 
+  // Estados dos Filtros
+  const [selectedBrand, setSelectedBrand] = useState("Todas");
+  const [selectedVersion, setSelectedVersion] = useState("Todas");
+  const [selectedFormat, setSelectedFormat] = useState("Todos");
+  const [search, setSearch] = useState("");
+
+  // 1. Busca de Dados Real (Cloudflare API)
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('/api/feedbacks');
-        if (!response.ok) throw new Error('Erro na API');
-        const data = await response.json();
-        // @ts-ignore
-        setFeedbacks(data || []);
-      } catch (error) {
-        console.warn("Usando dados de teste.");
-        setUsingMockData(true);
-        setFeedbacks([
-            { id: 1, created_at: '2026-01-10', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V1', autor: 'Agência', comentario_original: 'Mudar cor', resumo_ia: '-', categoria_topico: '["Cor"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'coca_v1.mp4' },
-            { id: 2, created_at: '2026-01-10', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V1', autor: 'Agência', comentario_original: 'Aumentar logo', resumo_ia: '-', categoria_topico: '["Marca"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Neutro', arquivo_video: 'coca_v1.mp4' },
-            { id: 3, created_at: '2026-01-12', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V2', autor: 'Agência', comentario_original: 'Ainda escuro', resumo_ia: '-', categoria_topico: '["Cor"]', categoria_acao: 'Correção', status: 'Revisão', sentimento: 'Negativo', arquivo_video: 'coca_v2.mp4' },
-            { id: 4, created_at: '2026-01-14', marca: 'Coca-Cola', formato: '16:9', tema: 'Verão', versao: 'V3', autor: 'Agência', comentario_original: 'Ok', resumo_ia: '-', categoria_topico: '["Geral"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'coca_v3.mp4' },
-            { id: 5, created_at: '2026-01-14', marca: 'Nubank', formato: '9:16', tema: 'App', versao: 'V1', autor: 'In-house', comentario_original: 'Ok', resumo_ia: '-', categoria_topico: '["Geral"]', categoria_acao: 'Aprovação', status: 'Resolvido', sentimento: 'Positivo', arquivo_video: 'nu.mp4' },
-        ]);
-      } finally {
+    setLoading(true);
+    fetch('/api/feedbacks')
+      .then(res => {
+        if (!res.ok) throw new Error("Falha ao conectar com o Banco D1.");
+        return res.json();
+      })
+      .then(json => {
+        setData(Array.isArray(json) ? json : []);
         setLoading(false);
-      }
-    };
-    fetchData();
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, []);
 
-  const analytics = useMemo(() => {
-    if (!feedbacks || feedbacks.length === 0) {
-        return { 
-            totalProjetos: 0, avgVersoesGeral: 0, totalAlteracoes: 0,
-            chartVersoesData: [], chartTopicosData: [], chartTimelineData: [], projectsTable: [], topRetrabalhoName: '-' 
-        };
-    }
+  // 2. Lógica de Filtros em Cascata (Usabilidade)
+  const brands = useMemo(() => ["Todas", ...new Set(data.map(d => d.video_marca))], [data]);
 
-    try {
-        const filtered = feedbacks.filter(f => filterMarca === 'Todas' || f.marca === filterMarca);
-        
-        // 1. Projetos e Versões
-        const projetosMap = new Map();
-        
-        filtered.forEach(f => {
-            if (!f.marca) return;
-            const temaSafe = f.tema || f.arquivo_video || 'Geral';
-            const key = `${f.marca}-${temaSafe}`;
-            
-            if (!projetosMap.has(key)) {
-                projetosMap.set(key, { marca: f.marca, tema: temaSafe, versoesSet: new Set(), alteracoesCount: 0, maxVersaoNum: 0 });
-            }
-            const proj = projetosMap.get(key);
-            const versaoRaw = f.versao || 'V1';
-            proj.versoesSet.add(versaoRaw);
-            
-            // Só conta como alteração se não for uma "Aprovação"
-            if (!f.categoria_acao?.includes('Aprovação')) {
-                proj.alteracoesCount += 1; 
-            }
-            
-            const vNum = parseInt(versaoRaw.replace(/\D/g, '') || '0');
-            if (vNum > proj.maxVersaoNum) proj.maxVersaoNum = vNum;
-        });
+  const availableVersions = useMemo(() => {
+    const brandFiltered = selectedBrand === "Todas" ? data : data.filter(d => d.video_marca === selectedBrand);
+    return ["Todas", ...new Set(brandFiltered.map(d => d.video_versao))].sort();
+  }, [selectedBrand, data]);
 
-        const projetos = Array.from(projetosMap.values()) as any[];
-        const totalProjetos = projetos.length;
-        const totalVersoesAcumuladas = projetos.reduce((acc, p) => acc + (p.maxVersaoNum || 1), 0);
-        const avgVersoesGeral = totalProjetos > 0 ? (totalVersoesAcumuladas / totalProjetos).toFixed(1) : 0;
-        const totalAlteracoes = filtered.length;
+  const filteredData = useMemo(() => {
+    return data.filter(d => 
+      (selectedBrand === "Todas" || d.video_marca === selectedBrand) &&
+      (selectedVersion === "Todas" || d.video_versao === selectedVersion) &&
+      (selectedFormat === "Todos" || d.video_formato === selectedFormat) &&
+      d.video_tema.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [data, selectedBrand, selectedVersion, selectedFormat, search]);
 
-        const projectsTable: ProjectStats[] = projetos.map(p => ({
-            marca: p.marca,
-            tema: p.tema,
-            versoes: p.maxVersaoNum || 1, 
-            alteracoes: p.alteracoesCount,
-            topicos: [] 
-        })).sort((a, b) => b.versoes - a.versoes); 
+  // 3. KPI 3: Média de Rodadas por Marca
+  const roundsByBrand = useMemo(() => {
+    const bList = [...new Set(data.map(d => d.video_marca))];
+    return bList.map(b => {
+      const brandData = data.filter(d => d.video_marca === b);
+      const maxV = Math.max(...brandData.map(d => parseInt(d.video_versao.replace(/\D/g, '')) || 0));
+      return { name: b, rodadas: maxV + 1 }; // v0 conta como 1 rodada
+    }).sort((a, b) => b.rodadas - a.rodadas);
+  }, [data]);
 
-        // Gráfico Versões
-        const versoesPorMarca: any = {};
-        projetos.forEach((p: any) => {
-            if (!versoesPorMarca[p.marca]) versoesPorMarca[p.marca] = { totalVersoes: 0, count: 0 };
-            versoesPorMarca[p.marca].totalVersoes += (p.maxVersaoNum || 1);
-            versoesPorMarca[p.marca].count += 1;
-        });
-        const chartVersoesData = Object.keys(versoesPorMarca).map(m => ({
-            name: m,
-            media: Number((versoesPorMarca[m].totalVersoes / versoesPorMarca[m].count).toFixed(1)),
-        }));
+  // 4. KPI 2: Distribuição de Tópicos (IA)
+  const topicData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredData.forEach(item => {
+      try {
+        const topics = JSON.parse(item.ai_category_topic || "[]");
+        const list = Array.isArray(topics) ? topics : ["Outros"];
+        list.forEach((t: string) => { counts[t] = (counts[t] || 0) + 1; });
+      } catch {
+        counts["Outros"] = (counts["Outros"] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [filteredData]);
 
-        // --- CORREÇÃO AQUI: Gráfico Tópicos ---
-        // Agora conta TUDO que não for "Aprovação" ou "Geral", independente do status
-        const topicosPorMarca: any = {};
-        filtered.forEach(f => {
-            const isAprovacao = f.categoria_acao === 'Aprovação' || f.categoria_topico?.includes('Geral');
-            
-            if (!isAprovacao) {
-                const cleanTopic = f.categoria_topico ? f.categoria_topico.replace(/[\[\]"]/g, '') : 'Outros';
-                // Ignora se ficou vazio após limpar
-                if (!cleanTopic) return;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#F1F5F9] gap-4">
+      <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+      <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Sincronizando D1...</p>
+    </div>
+  );
 
-                if (!topicosPorMarca[cleanTopic]) topicosPorMarca[cleanTopic] = {};
-                if (!topicosPorMarca[cleanTopic][f.marca]) topicosPorMarca[cleanTopic][f.marca] = 0;
-                topicosPorMarca[cleanTopic][f.marca] += 1;
-            }
-        });
-
-        const chartTopicosData = Object.keys(topicosPorMarca).map(topic => {
-            const obj: any = { name: topic };
-            Object.keys(topicosPorMarca[topic]).forEach(marca => {
-                obj[marca] = topicosPorMarca[topic][marca];
-            });
-            return obj;
-        });
-
-        // Timeline
-        const timeline: any = {};
-        filtered.forEach(f => {
-            try {
-                if (f.created_at) {
-                    const date = format(parseISO(f.created_at), 'dd/MM');
-                    if (!timeline[date]) timeline[date] = 0;
-                    timeline[date] += 1;
-                }
-            } catch (e) {}
-        });
-        const chartTimelineData = Object.keys(timeline).sort().map(d => ({ date: d, volume: timeline[d] }));
-
-        return { 
-            totalProjetos, avgVersoesGeral, totalAlteracoes,
-            chartVersoesData, chartTopicosData, chartTimelineData, projectsTable,
-            topRetrabalhoName: projectsTable[0]?.marca || '-'
-        };
-    } catch (err) {
-        console.error(err);
-        return { totalProjetos: 0, avgVersoesGeral: 0, totalAlteracoes: 0, chartVersoesData: [], chartTopicosData: [], chartTimelineData: [], projectsTable: [], topRetrabalhoName: 'Erro' };
-    }
-  }, [feedbacks, filterMarca]);
-
-  const uniqueMarcas = Array.from(new Set(feedbacks.map(f => f.marca || 'Unknown'))).sort();
+  if (error) return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-red-50 p-6">
+      <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+      <h2 className="text-2xl font-black text-red-900 uppercase">Erro de Conexão</h2>
+      <p className="text-red-700 mt-2 font-medium">{error}</p>
+    </div>
+  );
 
   return (
-    <div className="d-flex">
-      <InternalSidebar activePage={activePage} onNavigate={setActivePage} />
+    <div className="min-h-screen bg-[#F1F5F9] p-6 md:p-12 font-sans text-[#1E293B]">
+      
+      {/* HEADER & FILTROS GLOBAIS */}
+      <header className="max-w-7xl mx-auto mb-10 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-4xl font-[1000] tracking-tighter text-[#0F172A] uppercase">Feedback Intelligence</h1>
+          <Badge className="bg-[#1E293B] text-white px-5 py-2 rounded-full font-black tracking-widest border-none text-[10px]">PAGES PRO V1.5</Badge>
+        </div>
 
-      <div className="flex-grow-1 bg-light" style={{ marginLeft: '250px', minHeight: '100vh' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-white/70 backdrop-blur-xl p-4 rounded-[32px] shadow-2xl shadow-slate-200/50 border border-white">
+          <div className="relative">
+            <Search className="absolute left-4 top-4 h-5 w-5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Buscar projeto..." 
+              className="w-full pl-12 pr-4 py-3.5 rounded-[24px] bg-white border-none focus:ring-2 focus:ring-indigo-600 font-bold text-sm outline-none" 
+              onChange={(e) => setSearch(e.target.value)} 
+            />
+          </div>
+          <FilterSelect label="Marca" options={brands} value={selectedBrand} onChange={(v: string) => { setSelectedBrand(v); setSelectedVersion("Todas"); }} />
+          <FilterSelect label="Versão" options={availableVersions} value={selectedVersion} onChange={setSelectedVersion} />
+          <FilterSelect label="Formato" options={["Todos", "BC", "BCR"]} value={selectedFormat} onChange={setSelectedFormat} />
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto space-y-10">
         
-        <header className="bg-white shadow-sm py-3 px-4 d-flex justify-content-between align-items-center sticky-top">
-            <div>
-                <h5 className="m-0 fw-bold text-dark">
-                    {activePage === 'dashboard' ? 'Visão Geral' : activePage === 'analytics' ? 'Performance & Eficiência' : activePage === 'feedbacks' ? 'Banco de Dados' : 'Configurações'}
-                </h5>
-                <small className="text-muted">
-                    {activePage === 'analytics' ? 'Análise detalhada de retrabalho e esforço por projeto' : 'Monitoramento de produção criativa'}
-                </small>
-            </div>
-            <div className="d-flex gap-2">
-                <Form.Select size="sm" value={filterMarca} onChange={(e) => setFilterMarca(e.target.value)} className="fw-bold border-primary text-primary" style={{width: '200px'}}>
-                    <option value="Todas">Todas as Marcas</option>
-                    {uniqueMarcas.map(m => <option key={m} value={m}>{m}</option>)}
-                </Form.Select>
-                <Button variant="outline-secondary" size="sm"><FaCalendarAlt/> {filterPeriodo} dias</Button>
-            </div>
-        </header>
+        {/* KPI CARDS (PULSO DO PROJETO) */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <KPICard title="Feedbacks" value={filteredData.length} icon={<MessageSquare />} color="#4F46E5" sub="Volume de pedidos" />
+          <KPICard title="Projetos" value={[...new Set(filteredData.map(d=>d.video_tema))].length} icon={<Briefcase />} color="#10B981" sub="Campanhas ativas" />
+          <KPICard title="Rodadas" value={(roundsByBrand.reduce((a,b)=>a+b.rodadas,0)/roundsByBrand.length || 0).toFixed(1)} icon={<Layers />} color="#F59E0B" sub="Média por marca" />
+        </section>
 
-        <main className="p-4">
-            {usingMockData && (
-                <Alert variant="warning" className="py-2 small shadow-sm border-0 mb-4">
-                <FaExclamationCircle className="me-2"/> Modo de Demonstração: Exibindo dados simulados.
-                </Alert>
-            )}
-
-            {loading ? (
-                <div className="d-flex flex-column align-items-center justify-content-center py-5">
-                    <div className="spinner-border text-primary mb-3" role="status"></div>
-                    <span className="text-muted">Processando Dados...</span>
+        {/* ANALYTICS SECTION */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Gráfico de Tópicos - KPI 2 */}
+          <Card className="lg:col-span-4 rounded-[40px] border-none shadow-xl bg-white p-8">
+            <h3 className="text-lg font-black mb-6 flex items-center gap-2 uppercase tracking-tighter"><Activity className="h-5 w-5 text-indigo-600" /> Temas Recorrentes</h3>
+            <div className="h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={topicData} innerRadius={65} outerRadius={90} paddingAngle={8} dataKey="value">
+                    {topicData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="none" />)}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ borderRadius: '20px', border: 'none', fontWeight: '900' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-1 gap-2 mt-4">
+              {topicData.map((t, i) => (
+                <div key={t.name} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                    <span className="text-[10px] font-[900] text-slate-500 uppercase">{t.name}</span>
+                  </div>
+                  <span className="font-black text-indigo-600 text-sm">{t.value}</span>
                 </div>
-            ) : (
-                <>
-                {activePage === 'dashboard' && (
-                    <>
-                        <Row className="g-3 mb-4">
-                            <Col md={4}>
-                                <Card className="border-0 shadow-sm h-100">
-                                    <Card.Body>
-                                        <small className="text-muted text-uppercase fw-bold">Projetos Entregues</small>
-                                        <h2 className="fw-bold mb-0">{analytics.totalProjetos}</h2>
-                                        <small className="text-success">Vídeos únicos processados</small>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                            <Col md={4}>
-                                <Card className="border-0 shadow-sm h-100 border-start border-4 border-warning">
-                                    <Card.Body>
-                                        <small className="text-muted text-uppercase fw-bold">Média de Versões</small>
-                                        <h2 className="fw-bold mb-0 text-warning">{analytics.avgVersoesGeral}</h2>
-                                        <small className="text-muted">Versões p/ aprovar um vídeo</small>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                            <Col md={4}>
-                                <Card className="border-0 shadow-sm h-100">
-                                    <Card.Body>
-                                        <small className="text-muted text-uppercase fw-bold">Volume de Interações</small>
-                                        <h2 className="fw-bold mb-0">{analytics.totalAlteracoes}</h2>
-                                        <small className="text-muted">Comentários processados</small>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                        </Row>
-                        <Card className="border-0 shadow-sm mb-4">
-                            <Card.Body style={{height: 300}}>
-                                <h6 className="fw-bold mb-3 px-2">Fluxo de Entrada de Feedbacks</h6>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={analytics.chartTimelineData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="date" tick={{fontSize: 12}} />
-                                        <YAxis />
-                                        <RechartsTooltip />
-                                        <Line type="monotone" dataKey="volume" stroke="#0d6efd" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
-                                    </ComposedChart>
-                                </ResponsiveContainer>
-                            </Card.Body>
-                        </Card>
-                    </>
-                )}
-                {activePage === 'analytics' && (
-                    <>
-                        <Row className="mb-4">
-                             <Col md={12}>
-                                <Alert variant="light" className="border shadow-sm d-flex align-items-center">
-                                    <FaChartArea className="text-primary fs-4 me-3" />
-                                    <div>
-                                        <strong>Análise de Esforço:</strong>
-                                        <div className="small text-muted">
-                                            A marca <strong>{analytics.topRetrabalhoName}</strong> lidera o ranking de refações. 
-                                        </div>
-                                    </div>
-                                </Alert>
-                             </Col>
-                        </Row>
-                        <Row className="g-3 mb-4">
-                            <Col lg={6}>
-                                <Card className="border-0 shadow-sm h-100">
-                                    <Card.Header className="bg-white fw-bold border-0 pt-4 px-4">
-                                        <FaLayerGroup className="me-2 text-warning"/>
-                                        Média de Versões por Marca
-                                    </Card.Header>
-                                    <Card.Body style={{ height: 300 }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={analytics.chartVersoesData} layout="vertical" margin={{left: 20}}>
-                                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                                                <XAxis type="number" domain={[0, 'auto']} hide />
-                                                <YAxis dataKey="name" type="category" width={90} tick={{fontSize: 12, fontWeight: 'bold'}} />
-                                                <RechartsTooltip />
-                                                <Bar dataKey="media" name="Média Versões" fill="#ffc107" radius={[0, 4, 4, 0]} barSize={25} label={{ position: 'right', fill: '#666' }} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                            <Col lg={6}>
-                                <Card className="border-0 shadow-sm h-100">
-                                    <Card.Header className="bg-white fw-bold border-0 pt-4 px-4">
-                                        <FaExclamationCircle className="me-2 text-danger"/>
-                                        Categorias de Ajuste Solicitados
-                                    </Card.Header>
-                                    <Card.Body style={{ height: 300 }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={analytics.chartTopicosData}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                <XAxis dataKey="name" tick={{fontSize: 12}} />
-                                                <YAxis />
-                                                <RechartsTooltip />
-                                                <Legend />
-                                                {uniqueMarcas.map((marca, index) => (
-                                                    <Bar key={marca} dataKey={marca} stackId="a" fill={`hsl(${index * 60}, 70%, 50%)`} barSize={40} />
-                                                ))}
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                        </Row>
-                        <Card className="border-0 shadow-sm">
-                            <Card.Header className="bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                                <h6 className="fw-bold m-0"><FaListOl className="me-2"/> Detalhamento por Projeto (Vídeo)</h6>
-                                <Badge bg="secondary">{analytics.projectsTable.length} Projetos</Badge>
-                            </Card.Header>
-                            <Card.Body className="p-0 table-responsive">
-                                <Table hover className="mb-0 align-middle">
-                                    <thead className="bg-light text-muted small">
-                                        <tr>
-                                            <th className="ps-4">Marca</th>
-                                            <th>Nome do Vídeo / Tema</th>
-                                            <th className="text-center">Versões Geradas</th>
-                                            <th className="text-center">Total Alterações</th>
-                                            <th className="text-center">Média Alterações/Versão</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {analytics.projectsTable.map((proj, idx) => (
-                                            <tr key={idx}>
-                                                <td className="ps-4 fw-bold text-primary">{proj.marca}</td>
-                                                <td>{proj.tema}</td>
-                                                <td className="text-center">
-                                                    <Badge bg={proj.versoes > 2 ? 'danger' : 'success'} pill className="px-3">
-                                                        V{proj.versoes}
-                                                    </Badge>
-                                                </td>
-                                                <td className="text-center fw-bold">{proj.alteracoes}</td>
-                                                <td className="text-center text-muted">
-                                                    {(proj.alteracoes / proj.versoes).toFixed(1)}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </Table>
-                            </Card.Body>
-                        </Card>
-                    </>
-                )}
-                {activePage === 'feedbacks' && (
-                    <FeedbacksTable feedbacks={feedbacks.filter(f => filterMarca === 'Todas' || f.marca === filterMarca)} />
-                )}
-                {activePage === 'settings' && (
-                    <div className="text-center py-5 text-muted">
-                        <FaCog size={40} className="mb-3"/>
-                        <h4>Configurações</h4>
-                        <p>Funcionalidade em desenvolvimento.</p>
+              ))}
+            </div>
+          </Card>
+
+          {/* Gráfico de Esforço - KPI 3 */}
+          <Card className="lg:col-span-8 rounded-[40px] border-none shadow-xl bg-white p-8">
+            <h3 className="text-lg font-black mb-6 flex items-center gap-2 uppercase tracking-tighter"><BarChart3 className="h-5 w-5 text-indigo-600" /> Esforço (Rodadas)</h3>
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={roundsByBrand}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }} />
+                  <Tooltip cursor={{ fill: '#F8FAFC' }} contentStyle={{ borderRadius: '15px', border: 'none', fontWeight: 'bold' }} />
+                  <Bar dataKey="rodadas" fill="#4F46E5" radius={[12, 12, 0, 0]} barSize={45} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        </section>
+
+        {/* TIMELINE DE AJUSTES */}
+        <section className="space-y-6 pb-20">
+          <h2 className="text-2xl font-[1000] text-[#0F172A] px-4 uppercase tracking-tighter">Histórico de Feedbacks</h2>
+          {filteredData.map((item) => (
+            <Card key={item.id} className="rounded-[35px] border-none shadow-xl bg-white hover:scale-[1.01] transition-all duration-300 group overflow-hidden">
+              <CardContent className="p-8 flex flex-col lg:flex-row items-center justify-between gap-8 border-l-[14px] border-indigo-600">
+                <div className="flex items-center gap-8 flex-1 w-full">
+                  <div className="flex flex-col items-center justify-center min-w-[85px] h-[85px] rounded-[30px] bg-slate-50 border-2 border-slate-100 group-hover:border-indigo-100 transition-colors">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">VER.</span>
+                    <span className="text-3xl font-[1000] text-indigo-700">{item.video_versao.toUpperCase()}</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-[10px] font-black bg-[#0F172A] text-white px-4 py-1.5 rounded-xl tracking-widest uppercase">{item.video_marca}</span>
+                      <h4 className="font-black text-[#1E293B] text-2xl tracking-tight">{item.video_tema}</h4>
+                      <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                        <Video size={14} /> {item.video_formato}
+                      </div>
                     </div>
-                )}
-                </>
-            )}
-        </main>
-      </div>
+                    <p className="text-slate-500 text-base italic font-bold leading-relaxed max-w-2xl">"{item.ai_summary}"</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 flex-wrap justify-end min-w-[220px]">
+                  {(() => {
+                    try {
+                      const topics = JSON.parse(item.ai_category_topic || "[]");
+                      return Array.isArray(topics) ? topics.map((t: string) => (
+                        <Badge key={t} className="bg-indigo-600 text-white border-none text-[9px] font-black px-4 py-2 rounded-full uppercase tracking-tighter shadow-lg shadow-indigo-100">
+                          {t}
+                        </Badge>
+                      )) : null;
+                    } catch { return null; }
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+      </main>
     </div>
   );
 }
 
-export default App;
+// Componentes Atômicos para UI
+function FilterSelect({ label, options, onChange, value }: any) {
+  return (
+    <div className="flex items-center gap-3 bg-white px-5 py-2.5 rounded-[24px] border border-slate-100 shadow-sm transition-all hover:border-indigo-200">
+      <span className="text-[9px] font-[1000] text-slate-300 uppercase tracking-widest">{label}</span>
+      <select 
+        value={value} 
+        className="bg-transparent font-black text-sm outline-none cursor-pointer text-[#1E293B] flex-1 appearance-none" 
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((o: any) => <option key={o} value={o}>{o === "Todas" || o === "Todos" ? `Todos` : o.toUpperCase()}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function KPICard({ title, value, icon, color, sub }: any) {
+  return (
+    <Card className="rounded-[40px] border-none shadow-2xl bg-white p-8 flex items-center justify-between group hover:bg-indigo-700 transition-all duration-500 cursor-default overflow-hidden relative">
+      <div className="relative z-10">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[3px] mb-2 group-hover:text-indigo-200 transition-colors">{title}</p>
+        <div className="text-5xl font-[1000] text-[#0F172A] group-hover:text-white transition-colors tracking-tighter">{value}</div>
+        <p className="text-[9px] font-[900] text-indigo-500 mt-3 uppercase tracking-widest group-hover:text-indigo-100/60 transition-colors">{sub}</p>
+      </div>
+      <div className="p-6 rounded-[30px] bg-slate-50 group-hover:bg-white/10 transition-all relative z-10" style={{ color }}>
+        {React.cloneElement(icon, { size: 36, strokeWidth: 3, className: "group-hover:text-white transition-colors" })}
+      </div>
+    </Card>
+  );
+}
