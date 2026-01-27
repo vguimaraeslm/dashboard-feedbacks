@@ -117,7 +117,7 @@ export default function RefinedDashboard() {
         {/* KPI CARDS (MENORES) */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <KPICard title="Feedbacks" value={filteredData.length} icon={<MessageSquare />} sub="Total Processado" color="#6366f1" />
-          <KPICard title="Campanhas" value={[...new Set(filteredData.map(d=>d.video_tema))].length} icon={<Briefcase />} sub="Em Aberto" color="#10b981" />
+          <KPICard title="Campanhas" value={[...new Set(filteredData.map(d=>d.video_tema))].length} icon={<Briefcase />} sub="Executadas" color="#10b981" />
           <KPICard title="Rodadas" value={(roundsByBrand.reduce((a,b)=>a+b.rodadas,0)/roundsByBrand.length || 0).toFixed(1)} icon={<Layers />} sub="Média Geral" color="#f59e0b" />
         </section>
 
